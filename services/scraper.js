@@ -1,3 +1,19 @@
+
+/**
+*	Search scraper.
+*
+*	Reponsabilities:
+*	- Build a search URL from a keyword and page.
+*	- Fetch HTML with axios using realistic headers and timeouts.
+*	- Parse product cards from the search result grid.
+*	- Handle pagination by fetching subsequent pages when available.
+*
+*	Notes:
+*	- This code targets Amazon's public search results markup and may break if the DOM changes.
+*	- Network calls use a desktop User-Agent and short timeouts; tune as needed.
+*	- Sponsored results are filtered out heuristically.
+*/
+
 const axios = require("axios");
 const { JSDOM } = require("jsdom");
 const SCRAPING_URI = process.env.SCRAPPING_URI || "https://www.amazon.com/";
@@ -11,6 +27,12 @@ const log = {
 	error: (...a) => console.error("[scraper]", ...a),
 };
 
+/**
+*	Build the Amazon search URL for a keyword and page.
+*	@param {string} keyword - Search term (non-empty).
+*	@param {number} [page=1] - 1-based page index.
+*	@returns {string} Fully-qualified search URL.
+*/
 function buildUrl(keyword, page = 1) {
 	log.info(" - start [buildUrl] ");
 	const params = new URLSearchParams({
@@ -22,6 +44,13 @@ function buildUrl(keyword, page = 1) {
 	return `${SCRAPING_URI}/s?${params.toString()}`;
 }
 
+/**
+*	Fetch raw HTML from a URL.
+*	Uses conservative headers and a 25s timeout.
+*	@param {string} url
+*	@returns {Promise<string>} HTML string
+*	@throws {Error} On network/timeout errors.
+*/
 async function fetchHtml(url) {
 	log.info(" - start [fetchHtml] ");
 	const { data } = await axios.get(url, {
@@ -42,6 +71,26 @@ async function fetchHtml(url) {
 	return data;
 }
 
+/**
+*	Parse product data from an Amazon search result HTML document.
+*
+*	Extracts:
+*	- asin {string|null}
+*	- title {string}
+*	- rating {number|null}   // 0..5
+*	- reviews {number|null}  // count
+*	- image {string|null}    // URL
+*	- url {string|null}      // product detail URL
+*
+*	Pagination:
+*	- hasNext {boolean} Indicates whether a "next page" link is present.
+*
+*	@param {string} html
+*	@returns {{ products: Array<{
+*		asin:string|null, title:string, rating:number|null,
+*		reviews:number|null, image:string|null, url:string|null
+*	}>, hasNext:boolean }}
+*/
 function parseProducts(html) {
 	log.info(" - start [parseProducts] ");
 	const doc = new JSDOM(html).window.document;
@@ -113,6 +162,20 @@ function parseProducts(html) {
 	return { products, hasNext: !!nextLink };
 }
 
+/**
+ *	Express handler: scrape Amazon search results.
+ *
+ *	Query params:
+ *	- keyword {string}   Required search term
+ *	- page {number}      Optional, default 1
+ *	- pages {number}     Optional, number of pages to fetch (cap at MAX_PAGES)
+ *
+ *	Response:
+ *	{
+ *		keyword, page, pagesFetched, hasNext, nextPage,
+ *		count, products: [...]
+ *	}
+ */
 module.exports = async function scraper(req, res, next) {
 	log.info(" - start [scraper] ");
 	try {

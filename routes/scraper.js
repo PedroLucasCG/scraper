@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const scrapper = require("../services/scraper.js");
 
-router.get("/scrape", scrapper);
+router.get("/", scrapper);
 
 module.exports = router;
