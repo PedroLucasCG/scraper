@@ -7,6 +7,7 @@
 *	- Graceful shutdown on SIGINT/SIGTERM
 */
 
+require("dotenv").config();
 const express = require("express"); 
 const cors = require("cors");
 const morgan = require("morgan");
@@ -18,6 +19,9 @@ const app = express();
 const PORT = process.env.PORT || 8081;
 const BASE_URL = process.env.BASE_URL || "http://localhost";
 const VERSION = process.env.VERSION || 1;
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || 10);
+const MORGAN_FORMAT = process.env.MORGAN_FORMAT || "dev";
 let shuttingDown = false;
 
 // CORS: public API (any origin), limited to GET and JSON content
@@ -29,8 +33,8 @@ const corsConfig = cors({
 
 // Rate limiter: 10 requests/min per IP; sends JSON error payload
 const rateLimiterConfig = rateLimit({
-	windowMs: 60 * 1000,
-	max: 10,
+	windowMs: RATE_LIMIT_WINDOW_MS,
+	max: RATE_LIMIT_MAX,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req),
@@ -41,7 +45,7 @@ const rateLimiterConfig = rateLimit({
 app.use(
 	corsConfig,
 	rateLimiterConfig,
-	morgan("dev")
+	morgan(MORGAN_FORMAT)
 );
 
 // Mount versioned API routes (e.g., /api/v1/scrape)

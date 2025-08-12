@@ -17,9 +17,9 @@
 const axios = require("axios");
 const { JSDOM } = require("jsdom");
 const SCRAPING_URI = process.env.SCRAPPING_URI || "https://www.amazon.com/";
-const MAX_PAGES = process.env.MAX_PAGES || 3;
+const MAX_PAGES = parseInt(process.env.MAX_PAGES || 3);
 
-const DEBUG = false;
+const DEBUG = parseInt(process.env.DEBUG || 0);
 const log = {
 	info: (...a) => console.log("[scraper]", ...a),
 	debug: (...a) => DEBUG && console.log("[scraper]", ...a),
@@ -102,55 +102,55 @@ function parseProducts(html) {
 	);
 
 	const products = cards.map((card) => {
-	const isSponsored =
-	card.classList.contains("AdHolder") ||
-	!!card.querySelector("[aria-label='Sponsored'], .s-sponsored-label-text, [data-component-type='sp-sponsored-result']");
-	if (isSponsored) return null;
+		const isSponsored =
+			card.classList.contains("AdHolder") ||
+			!!card.querySelector("[aria-label='Sponsored'], .s-sponsored-label-text, [data-component-type='sp-sponsored-result']");
+		if (isSponsored) return null;
 
-	const asin = card.getAttribute("data-asin") || null;
+		const asin = card.getAttribute("data-asin") || null;
 
-	const title =
-		card.querySelector("h2 a span")?.textContent?.trim() ||
-		card.querySelector("h2 span")?.textContent?.trim() ||
-		null;
+		const title =
+			card.querySelector("h2 a span")?.textContent?.trim() ||
+			card.querySelector("h2 span")?.textContent?.trim() ||
+			null;
 
-	const ratingText =
-		card.querySelector("i.a-icon-star-small span.a-icon-alt")?.textContent?.trim() ||
-		card.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() ||
-		card.querySelector("[aria-label$='out of 5 stars']")?.getAttribute("aria-label") ||
-		null;
+		const ratingText =
+			card.querySelector("i.a-icon-star-small span.a-icon-alt")?.textContent?.trim() ||
+			card.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() ||
+			card.querySelector("[aria-label$='out of 5 stars']")?.getAttribute("aria-label") ||
+			null;
 
-	let rating = null;
-	if (ratingText) {
-		const m = ratingText.match(/([\d.]+)\s+out of\s+5/i);
-		if (m) rating = parseFloat(m[1]);
-	}
+		let rating = null;
+		if (ratingText) {
+			const m = ratingText.match(/([\d.]+)\s+out of\s+5/i);
+			if (m) rating = parseFloat(m[1]);
+		}
 
-	const reviewsCandidate =
-		card.querySelector("span[aria-label$='ratings']")?.getAttribute("aria-label") ||
-		card.querySelector("span[aria-label$='rating']")?.getAttribute("aria-label") ||
-		card.querySelector("span.a-size-base.s-underline-text")?.textContent?.trim() ||
-		null;
+		const reviewsCandidate =
+			card.querySelector("span[aria-label$='ratings']")?.getAttribute("aria-label") ||
+			card.querySelector("span[aria-label$='rating']")?.getAttribute("aria-label") ||
+			card.querySelector("span.a-size-base.s-underline-text")?.textContent?.trim() ||
+			null;
 
-	let reviews = null;
-	if (reviewsCandidate) {
-		const digits = reviewsCandidate.replace(/[^\d]/g, "");
-		if (digits) reviews = parseInt(digits, 10);
-	}
+		let reviews = null;
+		if (reviewsCandidate) {
+			const digits = reviewsCandidate.replace(/[^\d]/g, "");
+			if (digits) reviews = parseInt(digits, 10);
+		}
 
-	const image =
-		card.querySelector("img.s-image")?.getAttribute("src") ||
-		card.querySelector("img.s-image")?.getAttribute("data-src") ||
-		null;
+		const image =
+			card.querySelector("img.s-image")?.getAttribute("src") ||
+			card.querySelector("img.s-image")?.getAttribute("data-src") ||
+			null;
 
-	const href = card.querySelector("h2 a")?.getAttribute("href");
-	const url = asin
-		? `${SCRAPING_URI}/dp/${asin}`
-		: href
-		? new URL(href, SCRAPING_URI).href
-		: null;
+		const href = card.querySelector("h2 a")?.getAttribute("href");
+		const url = asin
+			? `${SCRAPING_URI}/dp/${asin}`
+			: href
+			? new URL(href, SCRAPING_URI).href
+			: null;
 
-	if (!title) return null;
+		if (!title) return null;
 		return { asin, title, rating, reviews, image, url };
 	}).filter(Boolean);
 
@@ -185,14 +185,14 @@ module.exports = async function scraper(req, res, next) {
 		const page = Math.max(1, parseInt(req.query.page || "1", 10));
 		const pages = Math.max(1, Math.min(MAX_PAGES, parseInt(req.query.pages || "1", 10)));
 
-		let all = [];
+		let output = [];
 		let hasNext = false;
 		for (let i = 0; i < pages; i++) {
 			const currentPage = page + i;
 			const url = buildUrl(keyword, currentPage);
 			const html = await fetchHtml(url);
 			const { products, hasNext: nextExists } = parseProducts(html);
-			all = all.concat(products);
+			output = output.concat(products);
 			hasNext = nextExists;
 			if (!nextExists) break;
 		}
@@ -200,11 +200,11 @@ module.exports = async function scraper(req, res, next) {
 		res.json({
 			keyword,
 			page,
-			pagesFetched: Math.min(pages, all.length ? pages : 0),
+			pagesFetched: Math.min(pages, output.length ? pages : 0),
 			hasNext,
 			nextPage: hasNext ? page + pages : null,
-			count: all.length,
-			products: all
+			count: output.length,
+			products: output
 		});
 	} catch (err) {
 		res.status(500).json({
