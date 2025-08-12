@@ -1,0 +1,35 @@
+{
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "jsdom": "^26.1.0",
+    "morgan": "^1.10.1"
+  },
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "Scrapes Amazon product listings",
+  "main": "server.js",
+  "scripts": {
+    "test": "npm test",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PedroLucasCG/scraper.git"
+  },
+  "keywords": [
+    "scraper",
+    "node.js",
+    "jsdom",
+    "express"
+  ],
+  "author": "PedroLucasCG",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PedroLucasCG/scraper/issues"
+  },
+  "homepage": "https://github.com/PedroLucasCG/scraper#readme"
+}
