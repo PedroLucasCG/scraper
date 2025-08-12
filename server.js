@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const { ipKeyGenerator } = require("express-rate-limit");
 const routes = require("./routes/scraper");
@@ -26,6 +27,7 @@ const rateLimiterConfig = rateLimit({
 app.use(
 	corsConfig,
 	rateLimiterConfig,
+	morgan("dev"),
 	routes
 );
 

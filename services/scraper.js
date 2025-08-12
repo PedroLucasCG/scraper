@@ -3,16 +3,27 @@ const { JSDOM } = require("jsdom");
 const SCRAPING_URI = process.env.SCRAPPING_URI || "https://www.amazon.com/";
 const MAX_PAGES = process.env.MAX_PAGES || 3;
 
+const DEBUG = false;
+const log = {
+	info: (...a) => console.log("[scraper]", ...a),
+	debug: (...a) => DEBUG && console.log("[scraper]", ...a),
+	warn: (...a) =>  console.warn("[scraper]", ...a),
+	error: (...a) => console.error("[scraper]", ...a),
+};
+
 function buildUrl(keyword, page = 1) {
+	log.info(" - start [buildUrl] ");
 	const params = new URLSearchParams({
 		k: keyword,
 		s: "review-rank",
 		page: String(page)
 	});
+	log.debug(" - finish [buildUrl]");
 	return `${SCRAPING_URI}/s?${params.toString()}`;
 }
 
 async function fetchHtml(url) {
+	log.info(" - start [fetchHtml] ");
 	const { data } = await axios.get(url, {
 		headers: {
 			"User-Agent":
@@ -27,10 +38,12 @@ async function fetchHtml(url) {
 		timeout: 25000,
 		maxRedirects: 5
 	});
+	log.debug(" - finish [fetchHtml]");
 	return data;
 }
 
 function parseProducts(html) {
+	log.info(" - start [parseProducts] ");
 	const doc = new JSDOM(html).window.document;
 
 	const cards = Array.from(
@@ -96,10 +109,12 @@ function parseProducts(html) {
 		doc.querySelector("a.s-pagination-next:not(.s-pagination-disabled)") ||
 		doc.querySelector("a[aria-label='Go to next page']");
 
+	log.debug(" - finish [parseProducts]");
 	return { products, hasNext: !!nextLink };
 }
 
 module.exports = async function scraper(req, res, next) {
+	log.info(" - start [scraper] ");
 	try {
 		const keyword = (req.query.keyword || "").toString().trim();
 		if (!keyword) return res.status(400).json({ error: "Missing ?keyword=" });
@@ -134,4 +149,5 @@ module.exports = async function scraper(req, res, next) {
 			details: err?.message || String(err)
 		});
 	}
+	log.debug(" - finish [scraper]");
 };
