@@ -16,13 +16,18 @@
 
 const axios = require("axios");
 const { JSDOM } = require("jsdom");
-const SCRAPING_URI = process.env.SCRAPPING_URI || "https://www.amazon.com/";
-const MAX_PAGES = parseInt(process.env.MAX_PAGES || 3);
+const {
+	SCRAPING_URI = "https://www.amazon.com/",
+	MAX_PAGES = 3,
+	DEBUG = 0,
+} = process.env;
 
-const DEBUG = parseInt(process.env.DEBUG || 0);
+const maxPages = Number(MAX_PAGES);
+const debug = Number(DEBUG);
+
 const log = {
 	info: (...a) => console.log("[scraper]", ...a),
-	debug: (...a) => DEBUG && console.log("[scraper]", ...a),
+	debug: (...a) => debug && console.log("[scraper]", ...a),
 	warn: (...a) =>  console.warn("[scraper]", ...a),
 	error: (...a) => console.error("[scraper]", ...a),
 };
@@ -183,7 +188,7 @@ module.exports = async function scraper(req, res, next) {
 		if (!keyword) return res.status(400).json({ error: "Missing ?keyword=" });
 
 		const page = Math.max(1, parseInt(req.query.page || "1", 10));
-		const pages = Math.max(1, Math.min(MAX_PAGES, parseInt(req.query.pages || "1", 10)));
+		const pages = Math.max(1, Math.min(maxPages, parseInt(req.query.pages || "1", 10)));
 
 		let output = [];
 		let hasNext = false;

@@ -16,12 +16,19 @@ const { ipKeyGenerator } = require("express-rate-limit");
 const routes = require("./routes");
 
 const app = express();
-const PORT = process.env.PORT || 8081;
-const BASE_URL = process.env.BASE_URL || "http://localhost";
-const VERSION = process.env.VERSION || 1;
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || 60000);
-const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || 10);
-const MORGAN_FORMAT = process.env.MORGAN_FORMAT || "dev";
+
+const {
+  PORT = 8081,
+  BASE_URL = "http://localhost",
+  RATE_LIMIT_WINDOW_MS = 60000,
+  RATE_LIMIT_MAX = 10,
+  MORGAN_FORMAT = "dev",
+} = process.env;
+
+const port = Number(PORT);
+const rateLimitWindowMs = Number(RATE_LIMIT_WINDOW_MS);
+const rateLimitMax = Number(RATE_LIMIT_MAX);
+
 let shuttingDown = false;
 
 // CORS: public API (any origin), limited to GET and JSON content
@@ -33,8 +40,8 @@ const corsConfig = cors({
 
 // Rate limiter: 10 requests/min per IP; sends JSON error payload
 const rateLimiterConfig = rateLimit({
-	windowMs: RATE_LIMIT_WINDOW_MS,
-	max: RATE_LIMIT_MAX,
+	windowMs: rateLimitWindowMs,
+	max: rateLimitMax,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req),
@@ -48,11 +55,11 @@ app.use(
 	morgan(MORGAN_FORMAT)
 );
 
-// Mount versioned API routes (e.g., /api/v1/scrape)
-app.use(`/api/v${VERSION}`, routes);
+// Mount versioned API routes (e.g., /api/scrape)
+app.use(`/api`, routes);
 
-const server = app.listen(PORT, () => {
-	console.log(`API listening on ${BASE_URL}:${PORT}/api/v${VERSION}`,);
+const server = app.listen(port, () => {
+	console.log(`API listening on ${BASE_URL}:${port}/api`,);
 });
 
 
