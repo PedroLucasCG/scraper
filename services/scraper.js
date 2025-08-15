@@ -76,6 +76,7 @@ async function fetchHtml(url) {
 	return data;
 }
 
+
 /**
 *	Parse product data from an Amazon search result HTML document.
 *
@@ -123,6 +124,7 @@ function parseProducts(html) {
 			card.querySelector("i.a-icon-star-small span.a-icon-alt")?.textContent?.trim() ||
 			card.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() ||
 			card.querySelector("[aria-label$='out of 5 stars']")?.getAttribute("aria-label") ||
+			card.querySelector('i[data-cy="reviews-ratings-slot"] .a-icon-alt')?.textContent?.trim() ||
 			null;
 
 		let rating = null;
@@ -168,6 +170,44 @@ function parseProducts(html) {
 }
 
 /**
+ *	Return the last numeric page number from Amazon's pagination bar.
+ *
+ *	It searches common containers used by Amazon for pagination, then collects
+ *	only the *numeric* pagination items (skipping Prev/Next/…).
+ *	Finally it reads the highest-numbered item (the “last page” visible).
+ *
+ *	@param {Document} doc - A DOM Document (e.g., from JSDOM or the browser)
+ *	@returns {number|null} - The last page number (e.g., 7) or null if not found
+ */
+function getLastNumericPageSpan(doc) {
+	log.info(" - start [getLastNumericPageSpan]");
+	
+	const strip =
+		doc.querySelector(".s-pagination-strip") ||
+		doc.querySelector("nav[aria-label='Pagination']") ||
+		doc.querySelector("#search .a-pagination");
+	if (!strip) return null;
+
+	const items = Array.from(strip.querySelectorAll(".s-pagination-item"))
+		.filter(el =>
+			!el.classList.contains("s-pagination-previous") &&
+			!el.classList.contains("s-pagination-next") &&
+			!el.classList.contains("s-pagination-ellipsis")
+		);
+
+	const last = items.at(-1);
+	if (!last) return null;
+
+	const label = last.getAttribute("aria-label") || last.textContent || "";
+	const num = parseInt(label.replace(/[^\d]/g, ""), 10);
+
+	log.debug(` - ${num} page(s) found for keyword`);
+	log.debug(" - finish [getLastNumericPageSpan]");
+
+	return Number.isFinite(num) ? num : null;
+}
+
+/**
  *	Express handler: scrape Amazon search results.
  *
  *	Query params:
@@ -192,13 +232,19 @@ module.exports = async function scraper(req, res, next) {
 
 		let output = [];
 		let hasNext = false;
+		let totalPages = null;
 		for (let i = 0; i < pages; i++) {
 			const currentPage = page + i;
 			const url = buildUrl(keyword, currentPage);
+			log.debug(` - scraping ${url}`);
 			const html = await fetchHtml(url);
 			const { products, hasNext: nextExists } = parseProducts(html);
 			output = output.concat(products);
 			hasNext = nextExists;
+			if (totalPages == null) {
+				const doc = new JSDOM(html).window.document;
+				totalPages = getLastNumericPageSpan(doc);
+			}
 			if (!nextExists) break;
 		}
 
@@ -209,7 +255,8 @@ module.exports = async function scraper(req, res, next) {
 			hasNext,
 			nextPage: hasNext ? page + pages : null,
 			count: output.length,
-			products: output
+			products: output,
+			totalPages: Math.ceil(totalPages / pages),
 		});
 	} catch (err) {
 		res.status(500).json({
